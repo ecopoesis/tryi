@@ -37,7 +37,7 @@ fun main() {
     source.add(label)
     source.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     source.pack()
-    source.isLocationByPlatform = true
+    source.setLocation(0, 0)
     source.isVisible = true
 
 
@@ -46,7 +46,7 @@ fun main() {
     generated.contentPane.add(generatedPreview)
     generated.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     generated.pack()
-    generated.isLocationByPlatform = true
+    generated.setLocation(scaledWidth, 0)
     generated.isVisible = true
 
     Thread.sleep(5000)
