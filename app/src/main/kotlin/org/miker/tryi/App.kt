@@ -3,13 +3,53 @@
  */
 package org.miker.tryi
 
-class App {
-    val greeting: String
-        get() {
-            return "Hello World!"
-        }
+import java.awt.Color
+import java.awt.Dimension
+import java.awt.Graphics
+import java.awt.Image
+import java.awt.Toolkit
+import javax.swing.ImageIcon
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.JPanel
+import kotlin.random.Random
+
+class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
+
+    override fun paintComponent(g: Graphics?) {
+        super.paintComponent(g)
+        g?.color = Color.RED
+        g?.fillRect(0, 0, Random.nextInt(100, 200), Random.nextInt(100, 200))
+    }
+
+    override fun getPreferredSize(): Dimension = Dimension(sizeX, sizeY)
 }
 
 fun main() {
-    println(App().greeting)
+    val screenSize = Toolkit.getDefaultToolkit().screenSize
+
+    val source = JFrame("Source")
+    val icon = ImageIcon("monalisa.jpg")
+    val scaledHeight = (screenSize.height * 0.7).toInt()
+    val scaledWidth = (icon.iconWidth * (scaledHeight.toDouble() / icon.iconHeight)).toInt()
+    val scaled = ImageIcon(icon.image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH))
+    val label = JLabel(scaled)
+    source.add(label)
+    source.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+    source.pack()
+    source.isLocationByPlatform = true
+    source.isVisible = true
+
+
+    val generatedPreview = GeneratedPreview(scaledWidth, scaledHeight)
+    val generated = JFrame("Generated")
+    generated.contentPane.add(generatedPreview)
+    generated.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+    generated.pack()
+    generated.isLocationByPlatform = true
+    generated.isVisible = true
+
+    Thread.sleep(5000)
+
+    generatedPreview.repaint()
 }
