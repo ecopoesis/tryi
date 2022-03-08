@@ -1,5 +1,6 @@
 package org.miker.tryi
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable.children
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -21,13 +22,14 @@ import javax.swing.JPanel
 import javax.swing.text.html.HTML.Tag.P
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlin.random.nextUBytes
 
 const val INTERNAL_RESOLUTION = 1000
 const val NUM_TRIANGLES = 1000
-const val LOCAL_MAX_FUDGE = 0.05
 const val CHILDREN = 10
+const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
 
 class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
 
@@ -129,7 +131,7 @@ fun initialize(numTriangles: Int, target: BufferedImage, preview: GeneratedPrevi
             else -> {
                 val children = runBlocking {
                     (0 until CHILDREN).map {
-                        async {
+                        async(Dispatchers.IO) {
                             addTriangle(triangles, image)
                         }
                     }.awaitAll()
@@ -150,22 +152,47 @@ fun initialize(numTriangles: Int, target: BufferedImage, preview: GeneratedPrevi
 }
 
 fun imageDiff(a: BufferedImage, b: BufferedImage): Double {
+    fun slow(): Double {
+        val stats = DescriptiveStatistics()
+
+        for(x in 0 until a.width) {
+            for(y in 0 until a.height) {
+                val rgbA = a.getRGB(x, y)
+                val rgbB = b.getRGB(x, y)
+
+                stats.addValue(abs(((rgbA shr 16) and 0xff) - ((rgbB shr 16) and 0xff)).toDouble())
+                stats.addValue(abs(((rgbA shr 8) and 0xff) - ((rgbB shr 8) and 0xff)).toDouble())
+                stats.addValue(abs((rgbA and 0xff) - (rgbB and 0xff)).toDouble())
+            }
+        }
+
+        return stats.mean / 255
+    }
+
+    fun fast(): Double {
+        var total = 0L
+
+        for (x in 0 until a.width) {
+            for (y in 0 until a.height) {
+                val rgbA = a.getRGB(x, y)
+                val rgbB = b.getRGB(x, y)
+
+                total += abs(((rgbA shr 16) and 0xff) - ((rgbB shr 16) and 0xff)).toLong()
+                total += abs(((rgbA shr 8) and 0xff) - ((rgbB shr 8) and 0xff)).toLong()
+                total += abs((rgbA and 0xff) - (rgbB and 0xff)).toLong()
+            }
+        }
+
+        return (total.toDouble() / (a.width * a.height * 3)) / 255
+    }
+
     if (a.width != b.width || a.height != b.height) {
         throw IllegalArgumentException("Images must be the same size")
     }
 
-    val stats = DescriptiveStatistics()
-
-    for(x in 0 until a.width) {
-        for(y in 0 until a.height) {
-            val rgbA = a.getRGB(x, y)
-            val rgbB = b.getRGB(x, y)
-
-            stats.addValue(abs(((rgbA shr 16) and 0xff) - ((rgbB shr 16) and 0xff)).toDouble())
-            stats.addValue(abs(((rgbA shr 8) and 0xff) - ((rgbB shr 8) and 0xff)).toDouble())
-            stats.addValue(abs((rgbA and 0xff) - (rgbB and 0xff)).toDouble())
-        }
+    return if (a.width.toLong() * a.height.toLong() >- IMAGE_DIFF_THRESHOLD) {
+        slow()
+    } else {
+        fast()
     }
-
-    return stats.mean / 255
 }
