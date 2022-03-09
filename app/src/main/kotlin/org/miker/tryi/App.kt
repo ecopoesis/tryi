@@ -14,6 +14,7 @@ import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.io.File
+import java.time.LocalDateTime
 import javax.imageio.ImageIO
 import javax.swing.ImageIcon
 import javax.swing.JFrame
@@ -31,6 +32,7 @@ const val INTERNAL_RESOLUTION = 200
 const val NUM_TRIANGLES = 150
 const val CHILDREN = 50
 const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
+const val UPDATE_RATE = 10L
 
 /**
  * Chance any triangle will mutate.
@@ -230,7 +232,7 @@ fun evolve(triangles: List<Triangle>, base: BufferedImage, target: BufferedImage
         return Triple(child, candidate, imageDiff(target, candidate))
     }
 
-    tailrec fun inner(triangles: List<Triangle>, image: BufferedImage, diff: Double, generation: Long): Triple<List<Triangle>, BufferedImage, Double> =
+    tailrec fun inner(triangles: List<Triangle>, image: BufferedImage, diff: Double, generation: Long, start: Long): Triple<List<Triangle>, BufferedImage, Double> =
         when {
             diff >= FITNESS_THRESHOLD -> Triple(triangles, image, diff)
             else -> {
@@ -243,12 +245,17 @@ fun evolve(triangles: List<Triangle>, base: BufferedImage, target: BufferedImage
                 }
                 val best = children.sortedBy { it.third }.first()
                 if (best.third < diff) {
-                    println("Evolved ($generation): ${(1 - best.third) * 100}% correct")
-                    preview.update(best.second)
-                    inner(best.first, best.second, best.third, generation + 1)
+                    val msg = "Evolved ($generation): ${(1 - best.third) * 100}% correct"
+                    if (generation % 1 == UPDATE_RATE) {
+                        preview.update(best.second)
+                        println("$msg - ${(generation.toDouble() / (System.currentTimeMillis() - start)) * 1000} generations/sec")
+                    } else {
+                        println(msg)
+                    }
+                    inner(best.first, best.second, best.third, generation + 1, start)
                 } else {
                     println("Bad ($generation): ${(1 - diff) * 100}% correct")
-                    inner(triangles, image, diff, generation + 1)
+                    inner(triangles, image, diff, generation + 1, start)
                 }
             }
         }
@@ -257,7 +264,8 @@ fun evolve(triangles: List<Triangle>, base: BufferedImage, target: BufferedImage
         triangles,
         base,
         imageDiff(target, base),
-        0
+        0,
+        System.currentTimeMillis()
     )
     return evolved
 }
