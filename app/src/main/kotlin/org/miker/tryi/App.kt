@@ -1,11 +1,5 @@
 package org.miker.tryi
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable.children
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.runBlocking
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import java.awt.Color
 import java.awt.Dimension
@@ -14,35 +8,19 @@ import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.io.File
-import java.time.LocalDateTime
 import javax.imageio.ImageIO
 import javax.swing.ImageIcon
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.text.html.HTML.Tag.P
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 import kotlin.random.Random
-import kotlin.random.nextUBytes
 
 const val INTERNAL_RESOLUTION = 200
-const val NUM_TRIANGLES = 150
-const val CHILDREN = 50
 const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
 const val UPDATE_RATE = 10L
-
-/**
- * Chance any triangle will mutate.
- */
-const val MUTATION_CHANCE_PCT = 1
-
-/**
- * Amount a triangle will mutate.
- */
-const val MUTATION_AMOUNT_PCT = 10 / 200.0
 
 const val FITNESS_THRESHOLD = 0.99
 
@@ -106,6 +84,27 @@ data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.
         )
 }
 
+/**
+ * Triangles and their rendered image.
+ */
+data class Tryi(
+    val triangles: List<Triangle>,
+    val image: BufferedImage
+)
+
+/**
+ * A tryi and how well it matches.
+ */
+data class TryiMatch(
+    val tryi: Tryi,
+    val diff: Double
+) {
+    constructor(triangles: List<Triangle>, image: BufferedImage, match: Double) : this(Tryi(triangles, image), match)
+
+    fun image(): BufferedImage = tryi.image
+    fun triangles(): List<Triangle> = tryi.triangles
+}
+
 @OptIn(ExperimentalUnsignedTypes::class)
 fun main() {
     val screenSize = Toolkit.getDefaultToolkit().screenSize
@@ -132,9 +131,8 @@ fun main() {
 
     val ogImage = scaleImage(sourceImage, INTERNAL_RESOLUTION, INTERNAL_RESOLUTION)
 
-    val (triangles, base) = initialize(NUM_TRIANGLES, ogImage, generatedPreview)
-
-    val result = evolve(triangles, base, ogImage, generatedPreview)
+    val evolver = SingleParentEvolver(ogImage, generatedPreview)
+    evolver.evolve()
 }
 
 fun scaleImage(source: Image, x: Int, y: Int): BufferedImage {
@@ -148,28 +146,11 @@ fun scaleImage(source: Image, x: Int, y: Int): BufferedImage {
 
 fun BufferedImage.deepCopy(): BufferedImage = BufferedImage(this.colorModel, this.copyData(null), this.isAlphaPremultiplied, null)
 
-/**
- * Create the initial triangles. Randomly generates triangles until we have [numTriangles].
- * For each new triangle, [CHILDREN] are generated and the best is chosen.
- */
-@ExperimentalUnsignedTypes
-fun initialize(numTriangles: Int, target: BufferedImage, preview: GeneratedPreview): Pair<List<Triangle>, BufferedImage> {
-    fun addTriangle(triangles: List<Triangle>, image: BufferedImage): Triple<List<Triangle>, BufferedImage, Double> {
-        val triangle =
-            Triangle(
-                Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                org.miker.tryi.Color(
-                    Random.nextInt(0, 255),
-                    Random.nextInt(0, 255),
-                    Random.nextInt(0, 255),
-                    Random.nextInt(0, 255)
-                )
-            )
 
-        val candidate = image.deepCopy()
-        val g2d = candidate.createGraphics()
+fun List<Triangle>.render(): BufferedImage {
+    val out = BufferedImage(INTERNAL_RESOLUTION, INTERNAL_RESOLUTION, BufferedImage.TYPE_4BYTE_ABGR)
+    val g2d = out.createGraphics()
+    this.forEach { triangle ->
         g2d.color = Color(
             triangle.color.r,
             triangle.color.g,
@@ -177,97 +158,9 @@ fun initialize(numTriangles: Int, target: BufferedImage, preview: GeneratedPrevi
             triangle.color.a
         )
         g2d.fillPolygon(triangle.x, triangle.y, 3)
-        g2d.dispose()
-
-        return Triple(triangles + triangle, candidate, imageDiff(target, candidate))
     }
-
-    tailrec fun inner(triangles: List<Triangle>, image: BufferedImage): Pair<List<Triangle>, BufferedImage> =
-        when (triangles.size) {
-            numTriangles -> Pair(triangles, image)
-            else -> {
-                val children = runBlocking {
-                    (0 until CHILDREN).map {
-                        async(Dispatchers.IO) {
-                            addTriangle(triangles, image)
-                        }
-                    }.awaitAll()
-                }
-                val best = children.sortedBy { it.third }.first()
-                println("Generated ${triangles.size}: ${(1 - best.third) * 100}% correct")
-                preview.update(best.second)
-
-                inner(best.first, best.second)
-            }
-        }
-
-    val (triangles, image) = inner(
-        emptyList(),
-        BufferedImage(INTERNAL_RESOLUTION, INTERNAL_RESOLUTION, BufferedImage.TYPE_4BYTE_ABGR)
-    )
-    return Pair(triangles, image)
-}
-
-fun evolve(triangles: List<Triangle>, base: BufferedImage, target: BufferedImage, preview: GeneratedPreview): List<Triangle> {
-    fun mutate(parent: List<Triangle>): Triple<List<Triangle>, BufferedImage, Double> {
-        val child = parent.map { triangle ->
-            when (Random.nextInt(1, 101) <= MUTATION_CHANCE_PCT) {
-                false -> triangle
-                else -> triangle.mutate(MUTATION_AMOUNT_PCT)
-            }
-        }
-        val candidate = BufferedImage(INTERNAL_RESOLUTION, INTERNAL_RESOLUTION, BufferedImage.TYPE_4BYTE_ABGR)
-        val g2d = candidate.createGraphics()
-        child.forEach { triangle ->
-            g2d.color = Color(
-                triangle.color.r,
-                triangle.color.g,
-                triangle.color.b,
-                triangle.color.a
-            )
-            g2d.fillPolygon(triangle.x, triangle.y, 3)
-        }
-        g2d.dispose()
-
-        return Triple(child, candidate, imageDiff(target, candidate))
-    }
-
-    tailrec fun inner(triangles: List<Triangle>, image: BufferedImage, diff: Double, generation: Long, start: Long): Triple<List<Triangle>, BufferedImage, Double> =
-        when {
-            diff >= FITNESS_THRESHOLD -> Triple(triangles, image, diff)
-            else -> {
-                val children = runBlocking {
-                    (0 until CHILDREN).map {
-                        async(Dispatchers.IO) {
-                            mutate(triangles)
-                        }
-                    }.awaitAll()
-                }
-                val best = children.sortedBy { it.third }.first()
-                if (best.third < diff) {
-                    val msg = "Evolved ($generation): ${(1 - best.third) * 100}% correct"
-                    if (generation % 1 == UPDATE_RATE) {
-                        preview.update(best.second)
-                        println("$msg - ${(generation.toDouble() / (System.currentTimeMillis() - start)) * 1000} generations/sec")
-                    } else {
-                        println(msg)
-                    }
-                    inner(best.first, best.second, best.third, generation + 1, start)
-                } else {
-                    println("Bad ($generation): ${(1 - diff) * 100}% correct")
-                    inner(triangles, image, diff, generation + 1, start)
-                }
-            }
-        }
-
-    val (evolved, _, _) = inner(
-        triangles,
-        base,
-        imageDiff(target, base),
-        0,
-        System.currentTimeMillis()
-    )
-    return evolved
+    g2d.dispose()
+    return out
 }
 
 /**
