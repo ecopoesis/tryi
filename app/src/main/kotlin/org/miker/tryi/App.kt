@@ -14,11 +14,10 @@ import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JPanel
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import kotlin.random.nextUBytes
 
-const val INTERNAL_RESOLUTION = 200
 const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
 const val UPDATE_RATE = 10L
 
@@ -44,36 +43,49 @@ class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
     override fun getPreferredSize(): Dimension = Dimension(sizeX, sizeY)
 }
 
-data class Point(val x: Int, val y: Int) {
+
+
+data class Point(val x: UByte, val y: UByte) {
     fun mutate(amount: Double): Point {
-        val xChange = max((x * amount).roundToInt(), 1)
-        val yChange = max((y * amount).roundToInt(), 1)
         return Point(
-            x = Random.nextInt(x - xChange, x + xChange).coerceIn(0, INTERNAL_RESOLUTION),
-            y = Random.nextInt(y - yChange, y + yChange).coerceIn(0, INTERNAL_RESOLUTION)
+            x = x.mutate(amount),
+            y = y.mutate(amount)
         )
+    }
+
+    companion object {
+        @OptIn(ExperimentalUnsignedTypes::class)
+        fun random(): Point {
+            val bytes = Random.nextUBytes(2)
+            return Point(bytes[0], bytes[1])
+        }
     }
 }
 
-data class Color(val r: Int, val g: Int, val b: Int, val a: Int) {
-    fun mutate(amount: Double): org.miker.tryi.Color {
-        val rChange = max((r * amount).roundToInt(), 1)
-        val gChange = max((g * amount).roundToInt(), 1)
-        val bChange = max((b * amount).roundToInt(), 1)
-        val aChange = max((a * amount).roundToInt(), 1)
-
-        return Color(
-            r = Random.nextInt(r - rChange, r + rChange).coerceIn(0, 255),
-            g = Random.nextInt(g - gChange, g + gChange).coerceIn(0, 255),
-            b = Random.nextInt(b - bChange, b + bChange).coerceIn(0, 255),
-            a = Random.nextInt(a - aChange, a + aChange).coerceIn(0, 255)
+data class TryiColor(val r: UByte, val g: UByte, val b: UByte, val a: UByte) {
+    fun mutate(amount: Double): TryiColor {
+        return TryiColor(
+            r = r.mutate(amount),
+            g = g.mutate(amount),
+            b = b.mutate(amount),
+            a = a.mutate(amount),
         )
+    }
+
+    val asColor: Color by lazy { Color(r.toInt(), g.toInt(), b.toInt(), a.toInt()) }
+
+    companion object {
+        @OptIn(ExperimentalUnsignedTypes::class)
+        fun random(): TryiColor {
+            val bytes = Random.nextUBytes(4)
+            return TryiColor(bytes[0], bytes[1], bytes[2], bytes[3])
+        }
     }
 }
 
-data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.miker.tryi.Color) {
-    val x: IntArray by lazy { arrayOf(p1.x, p2.x, p3.x).toIntArray() }
-    val y: IntArray by lazy { arrayOf(p1.y, p2.y, p3.y).toIntArray() }
+data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.miker.tryi.TryiColor) {
+    val x: IntArray by lazy { arrayOf(p1.x, p2.x, p3.x).map { it.toInt() }.toIntArray() }
+    val y: IntArray by lazy { arrayOf(p1.y, p2.y, p3.y).map { it.toInt() }.toIntArray() }
 
     fun mutate(amount: Double): Triangle =
         Triangle(
@@ -129,15 +141,15 @@ fun main() {
     generated.setLocation(scaledWidth, 0)
     generated.isVisible = true
 
-    val ogImage = scaleImage(sourceImage, INTERNAL_RESOLUTION, INTERNAL_RESOLUTION)
+    val ogImage = scaleImage(sourceImage)
 
     val evolver = SingleParentEvolver(ogImage, generatedPreview)
     evolver.evolve()
 }
 
-fun scaleImage(source: Image, x: Int, y: Int): BufferedImage {
-    val scaledImage = source.getScaledInstance(x, y, Image.SCALE_SMOOTH)
-    val bufferedImage = BufferedImage(x, y, BufferedImage.TYPE_4BYTE_ABGR)
+fun scaleImage(source: Image): BufferedImage {
+    val scaledImage = source.getScaledInstance(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), Image.SCALE_SMOOTH)
+    val bufferedImage = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
     val g2d = bufferedImage.createGraphics()
     g2d.drawImage(scaledImage, 0, 0, null)
     g2d.dispose()
@@ -148,15 +160,10 @@ fun BufferedImage.deepCopy(): BufferedImage = BufferedImage(this.colorModel, thi
 
 
 fun List<Triangle>.render(): BufferedImage {
-    val out = BufferedImage(INTERNAL_RESOLUTION, INTERNAL_RESOLUTION, BufferedImage.TYPE_4BYTE_ABGR)
+    val out = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
     val g2d = out.createGraphics()
     this.forEach { triangle ->
-        g2d.color = Color(
-            triangle.color.r,
-            triangle.color.g,
-            triangle.color.b,
-            triangle.color.a
-        )
+        g2d.color = triangle.color.asColor
         g2d.fillPolygon(triangle.x, triangle.y, 3)
     }
     g2d.dispose()

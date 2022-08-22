@@ -4,7 +4,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import java.awt.Color
 import java.awt.image.BufferedImage
 import kotlin.random.Random
 
@@ -38,25 +37,15 @@ class SingleParentEvolver(
         fun addTriangle(tryi: Tryi): TryiMatch {
             val triangle =
                 Triangle(
-                    Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                    Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                    Point(Random.nextInt(0, INTERNAL_RESOLUTION), Random.nextInt(0, INTERNAL_RESOLUTION)),
-                    org.miker.tryi.Color(
-                        Random.nextInt(0, 255),
-                        Random.nextInt(0, 255),
-                        Random.nextInt(0, 255),
-                        Random.nextInt(0, 255)
-                    )
+                    Point.random(),
+                    Point.random(),
+                    Point.random(),
+                    TryiColor.random()
                 )
 
             val candidate = tryi.image.deepCopy()
             val g2d = candidate.createGraphics()
-            g2d.color = Color(
-                triangle.color.r,
-                triangle.color.g,
-                triangle.color.b,
-                triangle.color.a
-            )
+            g2d.color = triangle.color.asColor
             g2d.fillPolygon(triangle.x, triangle.y, 3)
             g2d.dispose()
 
@@ -83,10 +72,7 @@ class SingleParentEvolver(
             }
 
         val (triangles, image) = inner(
-            Tryi(
-                emptyList(),
-                BufferedImage(INTERNAL_RESOLUTION, INTERNAL_RESOLUTION, BufferedImage.TYPE_4BYTE_ABGR)
-            )
+            Tryi(emptyList(), Utilities.emptyBufferedImage())
         )
         tryi = Tryi(triangles, image)
     }
