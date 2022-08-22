@@ -252,7 +252,7 @@ fun imageDiff(a: BufferedImage, b: BufferedImage): Double {
         throw IllegalArgumentException("Images must be the same size")
     }
 
-    return if (a.width.toLong() * a.height.toLong() >- IMAGE_DIFF_THRESHOLD) {
+    return if (a.width.toLong() * a.height.toLong() > IMAGE_DIFF_THRESHOLD) {
         slow()
     } else {
         fast()

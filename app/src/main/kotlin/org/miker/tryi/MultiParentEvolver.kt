@@ -14,16 +14,18 @@ class MultiParentEvolver(
     private val mutationChance: Double = 0.01,
     private val mutationAmount: Double = 0.10,
     private val selectionCutoff: Double = 0.15,
-    private val populationSize: Int = 100,
+    private val populationSize: Int = 50,
     private val numTriangles: Int = NUM_TRIANGLES,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD
-) : Evolver(target, previewPanel) {
+) : Evolver(numTriangles, target, previewPanel) {
 
     /**
      * Generate the initial random population
      */
     private fun generateRandomPopulation(): List<Tryi> =
         List(populationSize) { Tryi(List(numTriangles) { Triangle.random() }) }
+
+    private fun generateFitPopulation(): List<Tryi> = List(populationSize) { buildInitialTriy(populationSize) }
 
     /**
      * Merge two parents evenly with mutations.
@@ -91,7 +93,7 @@ class MultiParentEvolver(
             }
 
         // build initial population. population is always sorted from best to worst
-        val population = generateRandomPopulation().map { tryi ->
+        val population = generateFitPopulation().map { tryi ->
             TryiMatch(tryi, imageDiff(target, tryi.image))
         }.sortedBy { it.diff }
 
