@@ -8,6 +8,7 @@ import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.io.File
+import java.util.Base64
 import javax.imageio.ImageIO
 import javax.swing.ImageIcon
 import javax.swing.JFrame
@@ -19,7 +20,7 @@ import kotlin.random.Random
 import kotlin.random.nextUBytes
 
 const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
-const val UPDATE_RATE = 10L
+const val UPDATE_RATE = 50L
 
 const val FITNESS_THRESHOLD = 0.99
 
@@ -53,6 +54,8 @@ data class Point(val x: UByte, val y: UByte) {
         )
     }
 
+    val asList: List<UByte> by lazy { listOf(x, y) }
+
     companion object {
         @OptIn(ExperimentalUnsignedTypes::class)
         fun random(): Point {
@@ -74,6 +77,8 @@ data class TryiColor(val r: UByte, val g: UByte, val b: UByte, val a: UByte) {
 
     val asColor: Color by lazy { Color(r.toInt(), g.toInt(), b.toInt(), a.toInt()) }
 
+    val asList: List<UByte> by lazy { listOf(r, g, b, a) }
+
     companion object {
         @OptIn(ExperimentalUnsignedTypes::class)
         fun random(): TryiColor {
@@ -83,9 +88,11 @@ data class TryiColor(val r: UByte, val g: UByte, val b: UByte, val a: UByte) {
     }
 }
 
-data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.miker.tryi.TryiColor) {
+data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: TryiColor) {
     val x: IntArray by lazy { arrayOf(p1.x, p2.x, p3.x).map { it.toInt() }.toIntArray() }
     val y: IntArray by lazy { arrayOf(p1.y, p2.y, p3.y).map { it.toInt() }.toIntArray() }
+
+    val asList: List<UByte> by lazy { listOf(p1.asList, p2.asList, p3.asList, color.asList).flatten() }
 
     fun mutate(amount: Double): Triangle =
         Triangle(
@@ -94,6 +101,15 @@ data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.
             p3 = this.p3.mutate(amount),
             color = this.color.mutate(amount)
         )
+
+    companion object {
+        fun random(): Triangle = Triangle(
+            Point.random(),
+            Point.random(),
+            Point.random(),
+            TryiColor.random()
+        )
+    }
 }
 
 /**
@@ -102,7 +118,31 @@ data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: org.
 data class Tryi(
     val triangles: List<Triangle>,
     val image: BufferedImage
-)
+) {
+    fun serialize(): String =
+        Base64.getEncoder().encodeToString(triangles.flatMap { tri -> tri.asList }.map { it.toByte() }.toByteArray())
+
+    companion object {
+        @OptIn(ExperimentalUnsignedTypes::class)
+        fun deserialize(s: String): Tryi {
+            val bytes = Base64.getDecoder().decode(s).toUByteArray()
+            if (bytes.size % 10 != 0) {
+                throw IllegalArgumentException("Tryis must contain a multiple of 10 bytes")
+            }
+
+            val triangles = bytes.chunked(10).map { triBytes ->
+                Triangle(
+                    Point(triBytes[0], triBytes[1]),
+                    Point(triBytes[2], triBytes[3]),
+                    Point(triBytes[4], triBytes[5]),
+                    TryiColor(triBytes[6], triBytes[7], triBytes[8], triBytes[9])
+                )
+            }
+
+            return Tryi(triangles, triangles.render())
+        }
+    }
+}
 
 /**
  * A tryi and how well it matches.
@@ -156,8 +196,8 @@ fun scaleImage(source: Image): BufferedImage {
     return bufferedImage
 }
 
-fun BufferedImage.deepCopy(): BufferedImage = BufferedImage(this.colorModel, this.copyData(null), this.isAlphaPremultiplied, null)
-
+fun BufferedImage.deepCopy(): BufferedImage =
+    BufferedImage(this.colorModel, this.copyData(null), this.isAlphaPremultiplied, null)
 
 fun List<Triangle>.render(): BufferedImage {
     val out = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)

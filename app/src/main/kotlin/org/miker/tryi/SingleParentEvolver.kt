@@ -35,13 +35,7 @@ class SingleParentEvolver(
      */
     init {
         fun addTriangle(tryi: Tryi): TryiMatch {
-            val triangle =
-                Triangle(
-                    Point.random(),
-                    Point.random(),
-                    Point.random(),
-                    TryiColor.random()
-                )
+            val triangle = Triangle.random()
 
             val candidate = tryi.image.deepCopy()
             val g2d = candidate.createGraphics()
@@ -107,6 +101,7 @@ class SingleParentEvolver(
                         if (generation % UPDATE_RATE == 0L) {
                             previewPanel.update(best.image())
                             println("$msg - ${(generation.toDouble() / (System.currentTimeMillis() - start)) * 1000} generations/sec")
+                            println(best.tryi.serialize())
                         } else {
                             println(msg)
                         }
