@@ -19,21 +19,17 @@ import kotlin.random.Random
 class SingleParentEvolver(
     private val target: BufferedImage,
     private val previewPanel: GeneratedPreview,
+    private val mutationChance: Double = 0.01,
+    private val mutationAmount: Double = 0.05,
+    private val numChildren: Int = 50,
     private val numTriangles: Int = NUM_TRIANGLES,
-    private val numChildren: Int = NUM_CHILDREN,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD,
 ) : Evolver(target, previewPanel) {
-
-    /**
-     * Our best image so far.
-     */
-    var tryi: Tryi
-
     /**
      * Create the initial triangles. Randomly generates triangles until we have [numTriangles].
      * For each new triangle, [numChildren] are generated and the best is chosen.
      */
-    init {
+    fun initialize(): Tryi {
         fun addTriangle(tryi: Tryi): TryiMatch {
             val triangle = Triangle.random()
 
@@ -58,25 +54,22 @@ class SingleParentEvolver(
                         }.awaitAll()
                     }
                     val best = children.sortedBy { it.diff }.first()
-                    println("Generated ${tryi.triangles.size}: ${(1 - best.diff) * 100}% correct")
+                    println("gen, ${tryi.triangles.size}, ${(1 - best.diff) * 100}")
                     previewPanel.update(best.image())
 
                     inner(best.tryi)
                 }
             }
 
-        val (triangles, image) = inner(
-            Tryi(emptyList(), Utilities.emptyBufferedImage())
-        )
-        tryi = Tryi(triangles, image)
+        return inner(Tryi.empty())
     }
 
-    fun evolve() {
+    override fun evolve(): TryiMatch {
         fun mutate(parent: List<Triangle>): TryiMatch {
             val child = parent.map { triangle ->
-                when (Random.nextInt(1, 101) <= MUTATION_CHANCE_PCT) {
-                    false -> triangle
-                    else -> triangle.mutate(MUTATION_AMOUNT_PCT)
+                when {
+                    (Random.nextDouble(0.0, 1.0) <= mutationChance) -> triangle.mutate(mutationAmount)
+                    else -> triangle
                 }
             }
             val candidate = child.render()
@@ -96,24 +89,29 @@ class SingleParentEvolver(
                         }.awaitAll()
                     }
                     val best = children.sortedBy { it.diff }.first()
-                    if (best.diff < tryiMatch.diff) {
-                        val msg = "Evolved ($generation): ${(1 - best.diff) * 100}% correct"
-                        if (generation % UPDATE_RATE == 0L) {
+                    val rate = (generation.toDouble() / (System.currentTimeMillis() - start)) * 1000
+                    val next = when {
+                        best.diff < tryiMatch.diff -> {
+                            println("good, $generation, ${(1 - best.diff) * 100}, $rate")
                             previewPanel.update(best.image())
-                            println("$msg - ${(generation.toDouble() / (System.currentTimeMillis() - start)) * 1000} generations/sec")
-                            println(best.tryi.serialize())
-                        } else {
-                            println(msg)
+                            best
                         }
-                        inner(best, generation + 1, start)
-                    } else {
-                        println("Bad ($generation): ${(1 - tryiMatch.diff) * 100}% correct")
-                        inner(tryiMatch, generation + 1, start)
+                        else -> {
+                            println("bad, $generation, ${(1 - tryiMatch.diff) * 100}, $rate")
+                            tryiMatch
+                        }
                     }
+                    if (generation % OUTPUT_RATE == 0L) {
+                        println(next.tryi.serialize())
+                    }
+
+                    inner(next, generation + 1, start)
                 }
             }
 
-        val (evolved, _) = inner(
+        val tryi = initialize()
+
+        return inner(
             TryiMatch(
                 tryi,
                 imageDiff(target, tryi.image)
@@ -121,7 +119,5 @@ class SingleParentEvolver(
             0,
             System.currentTimeMillis()
         )
-
-        tryi = evolved
     }
 }

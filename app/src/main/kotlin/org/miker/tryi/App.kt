@@ -20,9 +20,7 @@ import kotlin.random.Random
 import kotlin.random.nextUBytes
 
 const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
-const val UPDATE_RATE = 50L
-
-const val FITNESS_THRESHOLD = 0.99
+const val OUTPUT_RATE = 50L
 
 class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
     init {
@@ -43,8 +41,6 @@ class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
 
     override fun getPreferredSize(): Dimension = Dimension(sizeX, sizeY)
 }
-
-
 
 data class Point(val x: UByte, val y: UByte) {
     fun mutate(amount: Double): Point {
@@ -119,6 +115,8 @@ data class Tryi(
     val triangles: List<Triangle>,
     val image: BufferedImage
 ) {
+    constructor(triangles: List<Triangle>) : this(triangles, triangles.render())
+
     fun serialize(): String =
         Base64.getEncoder().encodeToString(triangles.flatMap { tri -> tri.asList }.map { it.toByte() }.toByteArray())
 
@@ -139,8 +137,10 @@ data class Tryi(
                 )
             }
 
-            return Tryi(triangles, triangles.render())
+            return Tryi(triangles)
         }
+
+        fun empty(): Tryi = Tryi(emptyList(), Utilities.emptyBufferedImage())
     }
 }
 
@@ -183,7 +183,7 @@ fun main() {
 
     val ogImage = scaleImage(sourceImage)
 
-    val evolver = SingleParentEvolver(ogImage, generatedPreview)
+    val evolver: Evolver = MultiParentEvolver(ogImage, generatedPreview)
     evolver.evolve()
 }
 
