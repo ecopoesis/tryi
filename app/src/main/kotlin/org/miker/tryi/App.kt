@@ -27,6 +27,9 @@ class App : CliktCommand() {
     val input: File by argument(help="Input file.").file(mustExist = true, mustBeReadable = true, canBeDir = false)
 
     override fun run() {
+        val cores = Runtime.getRuntime().availableProcessors()
+        println("number of cores: $cores")
+
         val sourceImage = ImageIO.read(input)
 
         val previewFrame = when {
