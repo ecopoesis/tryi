@@ -1,5 +1,7 @@
 package org.miker.tryi
 
+import arrow.core.Option
+import arrow.core.toOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -19,13 +21,15 @@ import kotlin.random.Random
  */
 class SingleParentEvolver(
     private val target: BufferedImage,
-    private val previewPanel: GeneratedPreview,
+    private val previewPanel: Option<GeneratedPreview>,
+    outputRate: Int,
+    baseName: String,
     private val mutationChance: Double = 0.01,
     private val mutationAmount: Double = 0.05,
     private val numChildren: Int = 50,
     private val numTriangles: Int = NUM_TRIANGLES,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD,
-) : Evolver(numTriangles, target, previewPanel) {
+) : Evolver(numTriangles, target, outputRate, baseName) {
     override fun evolve(): TryiMatch {
         fun mutate(parent: List<Triangle>): TryiMatch {
             val child = parent.map { triangle ->
@@ -55,7 +59,7 @@ class SingleParentEvolver(
                     val next = when {
                         best.diff < tryiMatch.diff -> {
                             println("good, $generation, ${(1 - best.diff) * 100}, $rate")
-                            previewPanel.update(best.image())
+                            previewPanel.map { it.update(best.image()) }
                             best
                         }
                         else -> {
@@ -63,17 +67,14 @@ class SingleParentEvolver(
                             tryiMatch
                         }
                     }
-                    if (generation % OUTPUT_RATE == 0L) {
-                        println(next.tryi.serialize())
-                    }
-
+                    output(next.tryi, generation.toOption())
                     inner(next, generation + 1, start)
                 }
             }
 
         val tryi = buildInitialTriy(numChildren)
 
-        return inner(
+        val result = inner(
             TryiMatch(
                 tryi,
                 imageDiff(target, tryi.image)
@@ -81,5 +82,7 @@ class SingleParentEvolver(
             0,
             System.currentTimeMillis()
         )
+        output(result.tryi)
+        return result
     }
 }

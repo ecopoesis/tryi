@@ -1,16 +1,20 @@
 package org.miker.tryi;
 
+import arrow.core.None
+import arrow.core.Option
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.miker.tryi.ImageDiff.imageDiff
 import java.awt.image.BufferedImage
+import java.io.File
 
 abstract class Evolver(
     private val numTriangles: Int,
     private val target: BufferedImage,
-    private val previewPanel: GeneratedPreview
+    private val outputRate: Int,
+    private val baseName: String
 ) {
 
     companion object {
@@ -57,5 +61,13 @@ abstract class Evolver(
             }
 
         return inner(Tryi.empty())
+    }
+
+    fun output(tryi: Tryi, generation: Option<Long> = None) {
+        generation.fold( { File("$baseName.tryi") } ) { gen ->
+            if (gen % outputRate == 0L) {
+                File("$baseName-$gen.tryi").writeText(tryi.serialize())
+            }
+        }
     }
 }

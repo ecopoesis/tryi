@@ -1,212 +1,75 @@
 package org.miker.tryi
 
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
-import java.awt.Color
-import java.awt.Dimension
-import java.awt.Graphics
+import arrow.core.None
+import arrow.core.toOption
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.clikt.parameters.types.int
 import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.io.File
-import java.math.BigInteger
-import java.util.Base64
 import javax.imageio.ImageIO
 import javax.swing.ImageIcon
 import javax.swing.JFrame
 import javax.swing.JLabel
-import javax.swing.JPanel
-import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.random.Random
-import kotlin.random.nextUBytes
 
 const val OUTPUT_RATE = 50L
 
-class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
-    init {
-        background = Color(0, 0, 0)
-    }
+class App : CliktCommand() {
+    val outputRate: Int by option("-r", "--rate", help="How often to output a tryi file.").int().default(50)
+    val preview: Boolean by option("-p", "--preview", help="Show preview window.").flag(default = false)
+    val input: File by argument(help="Input file.").file(mustExist = true, mustBeReadable = true, canBeDir = false)
 
-    var image: Image = BufferedImage(sizeX, sizeY, BufferedImage.TYPE_4BYTE_ABGR)
+    override fun run() {
+        val sourceImage = ImageIO.read(input)
 
-    fun update(image: Image) {
-        this.image = image.getScaledInstance(sizeX, sizeY, Image.SCALE_SMOOTH)
-        repaint()
-    }
+        val previewFrame = when {
+            preview -> {
+                val screenSize = Toolkit.getDefaultToolkit().screenSize
+                val source = JFrame("Source")
+                val scaledHeight = (screenSize.height * 0.7).toInt()
+                val scaledWidth = (sourceImage.width * (scaledHeight.toDouble() / sourceImage.height)).roundToInt()
+                val scaledImage = sourceImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH)
+                val label = JLabel(ImageIcon(scaledImage))
+                source.add(label)
+                source.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+                source.pack()
+                source.setLocation(0, 0)
+                source.isVisible = true
 
-    override fun paintComponent(g: Graphics) {
-        super.paintComponent(g)
-        g.drawImage(image, 0, 0, null)
-    }
+                val generatedPreview = GeneratedPreview(scaledWidth, scaledHeight)
+                val generated = JFrame("Generated")
+                generated.contentPane.add(generatedPreview)
+                generated.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+                generated.pack()
+                generated.setLocation(scaledWidth, 0)
+                generated.isVisible = true
 
-    override fun getPreferredSize(): Dimension = Dimension(sizeX, sizeY)
-}
-
-data class Point(val x: UByte, val y: UByte) {
-    fun mutate(amount: Double): Point {
-        return Point(
-            x = x.mutate(amount),
-            y = y.mutate(amount)
-        )
-    }
-
-    val asList: List<UByte> by lazy { listOf(x, y) }
-
-    companion object {
-        @OptIn(ExperimentalUnsignedTypes::class)
-        fun random(): Point {
-            val bytes = Random.nextUBytes(2)
-            return Point(bytes[0], bytes[1])
-        }
-    }
-}
-
-data class TryiColor(val r: UByte, val g: UByte, val b: UByte, val a: UByte) {
-    fun mutate(amount: Double): TryiColor {
-        return TryiColor(
-            r = r.mutate(amount),
-            g = g.mutate(amount),
-            b = b.mutate(amount),
-            a = a.mutate(amount),
-        )
-    }
-
-    val asColor: Color by lazy { Color(r.toInt(), g.toInt(), b.toInt(), a.toInt()) }
-
-    val asList: List<UByte> by lazy { listOf(r, g, b, a) }
-
-    companion object {
-        @OptIn(ExperimentalUnsignedTypes::class)
-        fun random(): TryiColor {
-            val bytes = Random.nextUBytes(4)
-            return TryiColor(bytes[0], bytes[1], bytes[2], bytes[3])
-        }
-    }
-}
-
-data class Triangle(val p1: Point, val p2: Point, val p3: Point, val color: TryiColor) {
-    val x: IntArray by lazy { arrayOf(p1.x, p2.x, p3.x).map { it.toInt() }.toIntArray() }
-    val y: IntArray by lazy { arrayOf(p1.y, p2.y, p3.y).map { it.toInt() }.toIntArray() }
-
-    val asList: List<UByte> by lazy { listOf(p1.asList, p2.asList, p3.asList, color.asList).flatten() }
-
-    fun mutate(amount: Double): Triangle =
-        Triangle(
-            p1 = this.p1.mutate(amount),
-            p2 = this.p2.mutate(amount),
-            p3 = this.p3.mutate(amount),
-            color = this.color.mutate(amount)
-        )
-
-    companion object {
-        fun random(): Triangle = Triangle(
-            Point.random(),
-            Point.random(),
-            Point.random(),
-            TryiColor.random()
-        )
-    }
-}
-
-/**
- * Triangles and their rendered image.
- */
-data class Tryi(
-    val triangles: List<Triangle>,
-    val image: BufferedImage
-) {
-    constructor(triangles: List<Triangle>) : this(triangles, triangles.render())
-
-    fun serialize(): String =
-        Base64.getEncoder().encodeToString(triangles.flatMap { tri -> tri.asList }.map { it.toByte() }.toByteArray())
-
-    companion object {
-        @OptIn(ExperimentalUnsignedTypes::class)
-        fun deserialize(s: String): Tryi {
-            val bytes = Base64.getDecoder().decode(s).toUByteArray()
-            if (bytes.size % 10 != 0) {
-                throw IllegalArgumentException("Tryis must contain a multiple of 10 bytes")
+                generatedPreview.toOption()
             }
-
-            val triangles = bytes.chunked(10).map { triBytes ->
-                Triangle(
-                    Point(triBytes[0], triBytes[1]),
-                    Point(triBytes[2], triBytes[3]),
-                    Point(triBytes[4], triBytes[5]),
-                    TryiColor(triBytes[6], triBytes[7], triBytes[8], triBytes[9])
-                )
-            }
-
-            return Tryi(triangles)
+            else -> None
         }
 
-        fun empty(): Tryi = Tryi(emptyList(), Utilities.emptyBufferedImage())
+        val ogImage = scaleImage(sourceImage)
 
-        fun random(numTriangles: Int = 100): Tryi = Tryi(List(numTriangles) { Triangle.random() })
+        val evolver: Evolver = MultiParentEvolver(ogImage, previewFrame, outputRate, input.nameWithoutExtension)
+        evolver.evolve()
+    }
+
+    fun scaleImage(source: Image): BufferedImage {
+        val scaledImage = source.getScaledInstance(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), Image.SCALE_SMOOTH)
+        val bufferedImage = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
+        val g2d = bufferedImage.createGraphics()
+        g2d.drawImage(scaledImage, 0, 0, null)
+        g2d.dispose()
+        return bufferedImage
     }
 }
 
-/**
- * A tryi and how well it matches.
- */
-data class TryiMatch(
-    val tryi: Tryi,
-    val diff: Double
-) {
-    constructor(triangles: List<Triangle>, image: BufferedImage, match: Double) : this(Tryi(triangles, image), match)
-
-    fun image(): BufferedImage = tryi.image
-    fun triangles(): List<Triangle> = tryi.triangles
-}
-
-fun main() {
-    val screenSize = Toolkit.getDefaultToolkit().screenSize
-
-    val source = JFrame("Source")
-    val sourceImage = ImageIO.read(File("monalisa.jpg"))
-    val scaledHeight = (screenSize.height * 0.7).toInt()
-    val scaledWidth = (sourceImage.width * (scaledHeight.toDouble() / sourceImage.height)).roundToInt()
-    val scaledImage = sourceImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH)
-    val label = JLabel(ImageIcon(scaledImage))
-    source.add(label)
-    source.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-    source.pack()
-    source.setLocation(0, 0)
-    source.isVisible = true
-
-    val generatedPreview = GeneratedPreview(scaledWidth, scaledHeight)
-    val generated = JFrame("Generated")
-    generated.contentPane.add(generatedPreview)
-    generated.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-    generated.pack()
-    generated.setLocation(scaledWidth, 0)
-    generated.isVisible = true
-
-    val ogImage = scaleImage(sourceImage)
-
-    val evolver: Evolver = MultiParentEvolver(ogImage, generatedPreview)
-    evolver.evolve()
-}
-
-fun scaleImage(source: Image): BufferedImage {
-    val scaledImage = source.getScaledInstance(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), Image.SCALE_SMOOTH)
-    val bufferedImage = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
-    val g2d = bufferedImage.createGraphics()
-    g2d.drawImage(scaledImage, 0, 0, null)
-    g2d.dispose()
-    return bufferedImage
-}
-
-fun BufferedImage.deepCopy(): BufferedImage =
-    BufferedImage(this.colorModel, this.copyData(null), this.isAlphaPremultiplied, null)
-
-fun List<Triangle>.render(): BufferedImage {
-    val out = BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
-    val g2d = out.createGraphics()
-    this.forEach { triangle ->
-        g2d.color = triangle.color.asColor
-        g2d.fillPolygon(triangle.x, triangle.y, 3)
-    }
-    g2d.dispose()
-    return out
-}
+fun main(args: Array<String>) = App().main(args)

@@ -26,6 +26,9 @@ fun UByte.mutate(amount: Double): UByte {
     return Random.nextInt(i - change, i + change).coerceIn(UByte.MIN_VALUE.toInt(), UByte.MAX_VALUE.toInt()).toUByte()
 }
 
+fun BufferedImage.deepCopy(): BufferedImage =
+    BufferedImage(this.colorModel, this.copyData(null), this.isAlphaPremultiplied, null)
+
 object Utilities {
     fun emptyBufferedImage(): BufferedImage =
         BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
