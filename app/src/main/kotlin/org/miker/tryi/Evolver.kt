@@ -1,8 +1,11 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 package org.miker.tryi;
 
 import arrow.core.None
 import arrow.core.Option
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -20,6 +23,8 @@ abstract class Evolver(
     companion object {
         const val FITNESS_THRESHOLD: Double = 0.99
         const val NUM_TRIANGLES: Int = 150
+
+        val dispatcher = Dispatchers.IO.limitedParallelism( Runtime.getRuntime().availableProcessors() * 4)
     }
 
     abstract fun evolve(): TryiMatch
@@ -47,7 +52,7 @@ abstract class Evolver(
                 else -> {
                     val children = runBlocking {
                         (0 until numChildren).map {
-                            async(Dispatchers.IO) {
+                            async(dispatcher) {
                                 addTriangle(tryi)
                             }
                         }.awaitAll()

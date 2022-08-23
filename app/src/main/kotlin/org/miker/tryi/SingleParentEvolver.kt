@@ -49,7 +49,7 @@ class SingleParentEvolver(
                 else -> {
                     val children = runBlocking {
                         (0 until numChildren).map {
-                            async(Dispatchers.IO) {
+                            async(dispatcher) {
                                 mutate(tryiMatch.triangles())
                             }
                         }.awaitAll()

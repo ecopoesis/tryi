@@ -56,7 +56,7 @@ class MultiParentEvolver(
         val parents = population.take(max(1, (population.size * selectionCutoff).toInt()))
         val children = runBlocking {
             (0 until populationSize).map {
-                async(Dispatchers.IO) {
+                async(dispatcher) {
                     // find two random members of the population
                     val p = Random.uniqueInt(2, parents.indices)
 
