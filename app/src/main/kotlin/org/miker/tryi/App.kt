@@ -8,6 +8,7 @@ import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
 import java.io.File
+import java.math.BigInteger
 import java.util.Base64
 import javax.imageio.ImageIO
 import javax.swing.ImageIcon
@@ -19,7 +20,6 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.random.nextUBytes
 
-const val IMAGE_DIFF_THRESHOLD = Long.MAX_VALUE / 3 / 255
 const val OUTPUT_RATE = 50L
 
 class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
@@ -141,6 +141,8 @@ data class Tryi(
         }
 
         fun empty(): Tryi = Tryi(emptyList(), Utilities.emptyBufferedImage())
+
+        fun random(numTriangles: Int = 100): Tryi = Tryi(List(numTriangles) { Triangle.random() })
     }
 }
 
@@ -157,7 +159,6 @@ data class TryiMatch(
     fun triangles(): List<Triangle> = tryi.triangles
 }
 
-@OptIn(ExperimentalUnsignedTypes::class)
 fun main() {
     val screenSize = Toolkit.getDefaultToolkit().screenSize
 
@@ -208,53 +209,4 @@ fun List<Triangle>.render(): BufferedImage {
     }
     g2d.dispose()
     return out
-}
-
-/**
- * Compute the difference between two images. 0.0 is identical, 100.0 is opposites.
- */
-fun imageDiff(a: BufferedImage, b: BufferedImage): Double {
-    fun slow(): Double {
-        val stats = DescriptiveStatistics()
-
-        for(x in 0 until a.width) {
-            for(y in 0 until a.height) {
-                val rgbA = a.getRGB(x, y)
-                val rgbB = b.getRGB(x, y)
-
-                stats.addValue(abs(((rgbA shr 16) and 0xff) - ((rgbB shr 16) and 0xff)).toDouble())
-                stats.addValue(abs(((rgbA shr 8) and 0xff) - ((rgbB shr 8) and 0xff)).toDouble())
-                stats.addValue(abs((rgbA and 0xff) - (rgbB and 0xff)).toDouble())
-            }
-        }
-
-        return stats.mean / 255
-    }
-
-    fun fast(): Double {
-        var total = 0L
-
-        for (x in 0 until a.width) {
-            for (y in 0 until a.height) {
-                val rgbA = a.getRGB(x, y)
-                val rgbB = b.getRGB(x, y)
-
-                total += abs(((rgbA shr 16) and 0xff) - ((rgbB shr 16) and 0xff)).toLong()
-                total += abs(((rgbA shr 8) and 0xff) - ((rgbB shr 8) and 0xff)).toLong()
-                total += abs((rgbA and 0xff) - (rgbB and 0xff)).toLong()
-            }
-        }
-
-        return (total.toDouble() / (a.width * a.height * 3)) / 255
-    }
-
-    if (a.width != b.width || a.height != b.height) {
-        throw IllegalArgumentException("Images must be the same size")
-    }
-
-    return if (a.width.toLong() * a.height.toLong() > IMAGE_DIFF_THRESHOLD) {
-        slow()
-    } else {
-        fast()
-    }
 }
