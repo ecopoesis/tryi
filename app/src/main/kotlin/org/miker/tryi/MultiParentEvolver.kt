@@ -1,6 +1,7 @@
 package org.miker.tryi
 
 import arrow.core.Option
+import arrow.core.computations.result
 import arrow.core.toOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -73,24 +74,28 @@ class MultiParentEvolver(
             when {
                 population.first().diff >= fitnessThreshold -> population
                 else -> {
-                    val children = generateChildren(population.map { it.tryi }).map { tryi ->
-                        TryiMatch(tryi, imageDiff(target, tryi.image))
-                    }.sortedBy { it.diff }
+                    val next = runBlocking {
+                        val children = generateChildren(population.map { it.tryi }).pmap { tryi ->
+                            TryiMatch(tryi, imageDiff(target, tryi.image))
+                        }.sortedBy { it.diff }
 
-                    val best = children.first()
-                    val rate = (generation.toDouble() / (System.currentTimeMillis() - start)) * 1000
-                    val next = when {
-                        best.diff < population.first().diff -> {
-                            println("good, $generation, ${(1 - best.diff) * 100}, $rate")
-                            previewPanel.map { it. update(best.image()) }
-                            children
+                        val best = children.first()
+                        val rate = (generation.toDouble() / (System.currentTimeMillis() - start)) * 1000
+                        val next = when {
+                            best.diff < population.first().diff -> {
+                                println("good, $generation, ${(1 - best.diff) * 100}, $rate")
+                                previewPanel.map { it.update(best.image()) }
+                                children
+                            }
+
+                            else -> {
+                                println("bad, $generation, ${(1 - population.first().diff) * 100}, $rate")
+                                population
+                            }
                         }
-                        else -> {
-                            println("bad, $generation, ${(1 - population.first().diff) * 100}, $rate")
-                            population
-                        }
+                        output(best.tryi, generation.toOption())
+                        next
                     }
-                    output(best.tryi, generation.toOption())
                     inner(next, generation + 1, start)
                 }
             }
