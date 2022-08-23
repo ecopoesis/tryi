@@ -24,7 +24,7 @@ abstract class Evolver(
         const val FITNESS_THRESHOLD: Double = 0.99
         const val NUM_TRIANGLES: Int = 150
 
-        val dispatcher = Dispatchers.Default.limitedParallelism( Runtime.getRuntime().availableProcessors() * 4)
+        val dispatcher = Dispatchers.Default
     }
 
     abstract fun evolve(): TryiMatch
