@@ -2,13 +2,29 @@ package org.miker.tryi
 
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import org.miker.tryi.ImageDiff.ImageDiffAlgo.LONG_DATABUFFER
+import org.miker.tryi.ImageDiff.ImageDiffAlgo.LONG_DATABUFFER_LUT
 import java.awt.image.BufferedImage
-import java.awt.image.BufferedImage.TYPE_4BYTE_ABGR
-import java.awt.image.DataBufferByte
 import java.math.BigInteger.*
 import kotlin.math.abs
 
 object ImageDiff {
+    private val compositeLut: Array<LongArray> = (0..255).map { a ->
+        (0..255).map { c ->
+            composite(a.toUByte(), c.toUByte())
+        }.toTypedArray().toLongArray()
+    }.toTypedArray()
+
+    /**
+     * adjust [color] by [alpha] for a black background
+     */
+    private fun composite(alpha: UByte, color: UByte): Long {
+        // normalize 0..1
+        val a = alpha.toLong() / 255.0
+        val c = color.toLong() / 255.0
+
+        return  ((a * c) * 255).toLong().coerceIn(0, 255)
+    }
+
     enum class ImageDiffAlgo(val fn: (a: BufferedImage, b: BufferedImage) -> Double) {
         APACHE_STATS(
             { a: BufferedImage, b: BufferedImage ->
@@ -89,17 +105,6 @@ object ImageDiff {
 
         LONG_DATABUFFER(
             { a: BufferedImage, b: BufferedImage ->
-                /**
-                 * adjust [color] by [alpha] for a black background
-                 */
-                fun composite(alpha: kotlin.UByte, color: kotlin.UByte): kotlin.Long {
-                    // normalize 0..1
-                    val a = alpha.toLong() / 255.0
-                    val c = color.toLong() / 255.0
-
-                    return  ((a * c) * 255).toLong().coerceIn(0, 255)
-                }
-
                 if (a.type != java.awt.image.BufferedImage.TYPE_4BYTE_ABGR && b.type != java.awt.image.BufferedImage.TYPE_4BYTE_ABGR) {
                     throw IllegalArgumentException("Images must be TYPE_4BYTE_ABGR")
                 }
@@ -111,19 +116,19 @@ object ImageDiff {
                 for (i in aData.indices) {
                     if (i % 4 == 0) {
                         // byte order is: A, B, G, R
-                        total += kotlin.math.abs(
+                        total += abs(
                             composite(
                                 aData[i].toUByte(),
                                 aData[i + 1].toUByte()
                             ) - composite(bData[i].toUByte(), bData[i + 1].toUByte())
                         )
-                        total += kotlin.math.abs(
+                        total += abs(
                             composite(
                                 aData[i].toUByte(),
                                 aData[i + 2].toUByte()
                             ) - composite(bData[i].toUByte(), bData[i + 2].toUByte())
                         )
-                        total += kotlin.math.abs(
+                        total += abs(
                             composite(
                                 aData[i].toUByte(),
                                 aData[i + 3].toUByte()
@@ -132,6 +137,40 @@ object ImageDiff {
                     }
                 }
 
+                (total.toDouble() / (a.width * a.height * 3)) / 255
+            }
+        ),
+
+        LONG_DATABUFFER_LUT(
+            { a: BufferedImage, b: BufferedImage ->
+                if (a.type != java.awt.image.BufferedImage.TYPE_4BYTE_ABGR && b.type != java.awt.image.BufferedImage.TYPE_4BYTE_ABGR) {
+                    throw IllegalArgumentException("Images must be TYPE_4BYTE_ABGR")
+                }
+    
+                var total = 0L
+                val aData = (a.alphaRaster.dataBuffer as java.awt.image.DataBufferByte).data
+                val bData = (b.alphaRaster.dataBuffer as java.awt.image.DataBufferByte).data
+    
+                for (i in aData.indices) {
+                    if (i % 4 == 0) {
+                        // byte order is: A, B, G, R
+                        val alphaA = aData[i].toUByte().toInt()
+                        val alphaB = bData[i].toUByte().toInt()
+                        total += abs(
+                            compositeLut[alphaA][aData[i + 1].toUByte().toInt()] -
+                                    compositeLut[alphaB][bData[i + 1].toUByte().toInt()]
+                        )
+                        total += abs(
+                            compositeLut[alphaA][aData[i + 2].toUByte().toInt()] -
+                                    compositeLut[alphaB][bData[i + 2].toUByte().toInt()]
+                        )
+                        total += abs(
+                            compositeLut[alphaA][aData[i + 3].toUByte().toInt()] -
+                                    compositeLut[alphaB][bData[i + 3].toUByte().toInt()]
+                        )
+                    }
+                }
+    
                 (total.toDouble() / (a.width * a.height * 3)) / 255
             }
         )
@@ -144,7 +183,7 @@ object ImageDiff {
     /**
      * Compute the difference between two images. 0.0 is identical, 100.0 is opposites.
      */
-    fun imageDiff(a: BufferedImage, b: BufferedImage, algo: ImageDiffAlgo = LONG_DATABUFFER): Double {
+    fun imageDiff(a: BufferedImage, b: BufferedImage, algo: ImageDiffAlgo = LONG_DATABUFFER_LUT): Double {
         if (a.width != b.width || a.height != b.height) {
             throw IllegalArgumentException("Images must be the same size")
         }
