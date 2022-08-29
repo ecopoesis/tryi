@@ -19,7 +19,7 @@ class MultiParentEvolver(
     baseName: String,
     private val mutationChance: Double = 0.01,
     private val mutationAmount: Double = 0.10,
-    private val selectionCutoff: Double = 0.15,
+    private val select: (population: List<TryiMatch>) -> Pair<Tryi, Tryi> = { tournament(it,2) },
     private val populationSize: Int = 50,
     private val numTriangles: Int = NUM_TRIANGLES,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD
@@ -52,17 +52,14 @@ class MultiParentEvolver(
      * Create the next generation. The most successful parents will be paired to breed a new generation the same size
      * as the previous generation.
      */
-    private fun generateChildren(population: List<Tryi>): List<Tryi> {
-        // take only the "good" part of the population
-        val parents = population.take(max(1, (population.size * selectionCutoff).toInt()))
+    private fun generateChildren(population: List<TryiMatch>): List<Tryi> {
         val children = runBlocking {
             (0 until populationSize).map {
                 async(dispatcher) {
-                    // find two random members of the population
-                    val p = Random.uniqueInt(2, parents.indices)
+                    val parents = select(population)
 
                     // create a child from the parents
-                    Tryi(createChild(parents[p.first()].triangles, parents[p.last()].triangles))
+                    Tryi(createChild(parents.first.triangles, parents.second.triangles))
                 }
             }.awaitAll()
         }
@@ -75,7 +72,7 @@ class MultiParentEvolver(
                 population.first().diff >= fitnessThreshold -> population
                 else -> {
                     val next = runBlocking {
-                        val children = generateChildren(population.map { it.tryi }).pmap { tryi ->
+                        val children = generateChildren(population).pmap { tryi ->
                             TryiMatch(tryi, imageDiff(target, tryi.image))
                         }.sortedBy { it.diff }
 
@@ -85,6 +82,7 @@ class MultiParentEvolver(
                             best.diff < population.first().diff -> {
                                 println("good, $generation, ${(1 - best.diff) * 100}, $rate")
                                 previewPanel.map { it.update(best.image()) }
+                                output(best.tryi, generation.toOption())
                                 children
                             }
 
@@ -93,7 +91,6 @@ class MultiParentEvolver(
                                 population
                             }
                         }
-                        output(best.tryi, generation.toOption())
                         next
                     }
                     inner(next, generation + 1, start)
@@ -116,3 +113,22 @@ fun <A> Pair<A, A>.choose(chance: Double = 0.5): A =
         Random.nextDouble() < chance -> this.first
         else -> this.second
     }
+
+/**
+ * Take only the top [selectionCutoff] of the population.
+ */
+fun cutoff(population: List<TryiMatch>, selectionCutoff: Double): Pair<Tryi, Tryi> {
+    val possible = population.take(max(1, (population.size * selectionCutoff).toInt())).map { it.tryi }
+    val parents = possible.random(2)
+    return Pair(parents.first(), parents.last())
+}
+
+/**
+ * Tournament selection: choose [k] individuals from the population. Choose the best. Repeat to get another parent.
+ */
+fun tournament(population: List<TryiMatch>, k: Int = 2): Pair<Tryi, Tryi> {
+    // run a single tournament
+    fun singleTournament(): Tryi = population.random(k).minByOrNull { it.diff }!!.tryi
+
+    return Pair(singleTournament(), singleTournament())
+}

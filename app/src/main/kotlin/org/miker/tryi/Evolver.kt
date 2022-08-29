@@ -70,9 +70,7 @@ abstract class Evolver(
 
     fun output(tryi: Tryi, generation: Option<Long> = None) {
         generation.fold( { File("$baseName.tryi") } ) { gen ->
-            if (gen % outputRate == 0L) {
-                File("$baseName-$gen.tryi").writeText(tryi.serialize())
-            }
-        }
+            File("$baseName-${gen.toString().padStart(10, '0')}.tryi")
+        }.writeText(tryi.serialize())
     }
 }

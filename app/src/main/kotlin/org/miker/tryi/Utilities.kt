@@ -20,6 +20,9 @@ fun Random.uniqueInt(n: Int, range: IntRange = 0..Int.MAX_VALUE): Set<Int> {
     return randoms
 }
 
+fun <A> List<A>.random(n: Int): List<A> =
+    this.asSequence().shuffled().take(n).toList()
+
 /**
  * mutate a [UByte] randomly by [amount].
  */
