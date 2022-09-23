@@ -16,7 +16,9 @@ import java.io.File
 abstract class Evolver(
     private val numTriangles: Int,
     private val target: BufferedImage,
-    private val baseName: String
+    private val baseName: String,
+    private val ogX: Int,
+    private val ogY: Int
 ) {
 
     companion object {
@@ -70,6 +72,6 @@ abstract class Evolver(
     fun output(tryi: Tryi, generation: Option<Long> = None) {
         generation.fold( { File("$baseName.tryi") } ) { gen ->
             File("$baseName-${gen.toString().padStart(10, '0')}.tryi")
-        }.writeText(tryi.serialize())
+        }.writeText("$ogX;$ogY;${tryi.serialize()}")
     }
 }

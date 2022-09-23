@@ -19,10 +19,12 @@ class MultiParentEvolver(
     private val mutationChance: Double,
     private val mutationAmount: Double,
     private val mutationType: MutationType,
+    ogX: Int,
+    ogY: Int,
     private val select: (population: List<TryiMatch>) -> Pair<Tryi, Tryi> = { tournament(it,2) },
     private val populationSize: Int = 50,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD
-) : Evolver(numTriangles, target, baseName) {
+) : Evolver(numTriangles, target, baseName, ogX, ogY) {
 
     /**
      * Generate the initial random population

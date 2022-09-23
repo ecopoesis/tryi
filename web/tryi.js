@@ -1,9 +1,16 @@
 import { Base64Binary } from './base64.js'
 
-export function render(tryi, x, y, canvas) {
-    if (tryi === undefined || x === undefined || y === undefined || tryi === '' || x === '' || y === '') {
+export function render(src, canvas) {
+    if (src === undefined || src === '') {
         return
     }
+
+    const arr = src.split(';');
+
+    const x = arr.length === 3 ? arr[0] : 255
+    const y = arr.length === 3 ? arr[1] : 255
+    const tryi =  arr.length === 3 ? arr[2] : src
+
     if (!isNumeric(x) && !isNumeric(y)) {
         console.error('height and width must be numbers');
         return

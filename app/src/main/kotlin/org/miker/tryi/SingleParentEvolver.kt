@@ -28,9 +28,11 @@ class SingleParentEvolver(
     private val mutationChance: Double,
     private val mutationAmount: Double,
     private val mutationType: MutationType,
+    ogX: Int,
+    ogY: Int,
     private val numChildren: Int = 50,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD,
-) : Evolver(numTriangles, target, baseName) {
+) : Evolver(numTriangles, target, baseName, ogX, ogY) {
     override fun evolve(): TryiMatch {
         fun mutate(parent: List<Triangle>): TryiMatch {
             val child = parent.map { triangle ->
@@ -58,6 +60,7 @@ class SingleParentEvolver(
                         best.diff < tryiMatch.diff -> {
                             println("good, $generation, ${(1 - best.diff) * 100}, $rate")
                             previewPanel.map { it.update(best.image()) }
+                            output(best.tryi, generation.toOption())
                             best
                         }
                         else -> {
@@ -65,7 +68,6 @@ class SingleParentEvolver(
                             tryiMatch
                         }
                     }
-                    output(next.tryi, generation.toOption())
                     inner(next, generation + 1, start)
                 }
             }

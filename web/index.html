@@ -17,10 +17,6 @@
     <div class="tryi">
       <textarea name="tryi" id="tryi" class="tyri">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</textarea>
     </div>
-    <div class="tryi">
-      x: <input type="text" name="width" id="width" value="1364">
-      y: <input type="text" name="height" id="height" value="1080">
-    </div>
     <div class="canvas">
       <canvas id="canvas" width="1" height="1" style="border: 0;">
         Your browser does not support the HTML5 canvas tag.
@@ -33,34 +29,12 @@
       document.getElementById('tryi').addEventListener('change',  function () {
           render(
               document.getElementById('tryi').value,
-              document.getElementById('width').value,
-              document.getElementById('height').value,
-              document.getElementById('canvas')
-          )
-      });
-
-      document.getElementById('width').addEventListener('change',  function () {
-          render(
-              document.getElementById('tryi').value,
-              document.getElementById('width').value,
-              document.getElementById('height').value,
-              document.getElementById('canvas')
-          )
-      });
-
-      document.getElementById('height').addEventListener('change',  function () {
-          render(
-              document.getElementById('tryi').value,
-              document.getElementById('width').value,
-              document.getElementById('height').value,
               document.getElementById('canvas')
           )
       });
 
       render(
           document.getElementById('tryi').value,
-          document.getElementById('width').value,
-          document.getElementById('height').value,
           document.getElementById('canvas')
       )
     </script>
