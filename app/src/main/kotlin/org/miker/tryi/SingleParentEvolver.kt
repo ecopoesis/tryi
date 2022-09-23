@@ -7,6 +7,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.miker.tryi.ImageDiff.imageDiff
+import org.miker.tryi.Triangle.MutationType
 import java.awt.image.BufferedImage
 import kotlin.random.Random
 
@@ -22,21 +23,18 @@ import kotlin.random.Random
 class SingleParentEvolver(
     private val target: BufferedImage,
     private val previewPanel: Option<GeneratedPreview>,
-    outputRate: Int,
     baseName: String,
-    private val mutationChance: Double = 0.01,
-    private val mutationAmount: Double = 0.05,
+    private val numTriangles: Int,
+    private val mutationChance: Double,
+    private val mutationAmount: Double,
+    private val mutationType: MutationType,
     private val numChildren: Int = 50,
-    private val numTriangles: Int = NUM_TRIANGLES,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD,
-) : Evolver(numTriangles, target, outputRate, baseName) {
+) : Evolver(numTriangles, target, baseName) {
     override fun evolve(): TryiMatch {
         fun mutate(parent: List<Triangle>): TryiMatch {
             val child = parent.map { triangle ->
-                when {
-                    (Random.nextDouble(0.0, 1.0) <= mutationChance) -> triangle.mutate(mutationAmount)
-                    else -> triangle
-                }
+                triangle.mutate(mutationType, mutationChance, mutationAmount)
             }
             val candidate = child.render()
 

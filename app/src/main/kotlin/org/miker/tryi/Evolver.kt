@@ -16,7 +16,6 @@ import java.io.File
 abstract class Evolver(
     private val numTriangles: Int,
     private val target: BufferedImage,
-    private val outputRate: Int,
     private val baseName: String
 ) {
 

@@ -7,8 +7,15 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.double
+import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.int
+import org.miker.tryi.Evolver.Companion.NUM_TRIANGLES
+import org.miker.tryi.Triangle.MutationType
+import org.miker.tryi.Triangle.MutationType.FULL
 import java.awt.Image
 import java.awt.Toolkit
 import java.awt.image.BufferedImage
@@ -19,12 +26,22 @@ import javax.swing.JFrame
 import javax.swing.JLabel
 import kotlin.math.roundToInt
 
-const val OUTPUT_RATE = 50L
-
 class App : CliktCommand() {
-    val outputRate: Int by option("-r", "--rate", help="How often to output a tryi file.").int().default(50)
-    val preview: Boolean by option("-p", "--preview", help="Show preview window.").flag(default = false)
-    val input: File by argument(help="Input file.").file(mustExist = true, mustBeReadable = true, canBeDir = false)
+    private val outputRate: Int by option("-r", "--rate", help="How often to output a tryi file.").int()
+        .default(50)
+    private val preview: Boolean by option("-p", "--preview", help="Show preview window.").flag(default = false)
+    private val input: File by argument(help="Input file.")
+        .file(mustExist = true, mustBeReadable = true, canBeDir = false)
+    private val algo: String by option("-a", "--algo", help="Algorithm to use.")
+        .choice("single", "multi").required()
+    private val triangles: Int by option("-t", "--triangles", help="How many triangles in the tryi.")
+        .int().default(NUM_TRIANGLES)
+    private val mutationType: MutationType by option("-m", "--mutation", help="What style of mutation to use.")
+        .enum<MutationType>().default(FULL)
+    private val mutationChance: Double by option("--chance", help="Chance of a mutation occurring (0..1).")
+        .double().default(0.01)
+    private val mutationAmount: Double by option("--amount", help="Mutation amount (0..1).")
+        .double().default(0.10)
 
     override fun run() {
         val cores = Runtime.getRuntime().availableProcessors()
@@ -61,7 +78,29 @@ class App : CliktCommand() {
 
         val ogImage = scaleImage(sourceImage)
 
-        val evolver: Evolver = MultiParentEvolver(ogImage, previewFrame, outputRate, input.nameWithoutExtension)
+        val evolver: Evolver = when (algo) {
+            "single" -> SingleParentEvolver(
+                ogImage,
+                previewFrame,
+                input.nameWithoutExtension,
+                numChildren = cores,
+                numTriangles = triangles,
+                mutationAmount = mutationAmount,
+                mutationChance = mutationChance,
+                mutationType = mutationType
+            )
+            "multi" -> MultiParentEvolver(
+                ogImage,
+                previewFrame,
+                input.nameWithoutExtension,
+                numTriangles = triangles,
+                mutationAmount = mutationAmount,
+                mutationChance = mutationChance,
+                mutationType = mutationType
+            )
+            else -> throw IllegalArgumentException("unknown algo ${algo}")
+        }
+
         evolver.evolve()
     }
 

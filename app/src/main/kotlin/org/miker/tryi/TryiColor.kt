@@ -5,12 +5,12 @@ import kotlin.random.Random
 import kotlin.random.nextUBytes
 
 data class TryiColor(val r: UByte, val g: UByte, val b: UByte, val a: UByte) {
-    fun mutate(amount: Double): TryiColor {
+    fun mutate(chance: Double, amount: Double): TryiColor {
         return TryiColor(
-            r = r.mutate(amount),
-            g = g.mutate(amount),
-            b = b.mutate(amount),
-            a = a.mutate(amount),
+            r = if (Random.nextDouble(0.0, 1.0) <= chance) r.mutate(amount) else r,
+            g = if (Random.nextDouble(0.0, 1.0) <= chance) g.mutate(amount) else g,
+            b = if (Random.nextDouble(0.0, 1.0) <= chance) b.mutate(amount) else b,
+            a = if (Random.nextDouble(0.0, 1.0) <= chance) a.mutate(amount) else a,
         )
     }
 

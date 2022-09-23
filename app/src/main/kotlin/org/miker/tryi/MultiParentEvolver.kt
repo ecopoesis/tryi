@@ -1,13 +1,12 @@
 package org.miker.tryi
 
 import arrow.core.Option
-import arrow.core.computations.result
 import arrow.core.toOption
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.miker.tryi.ImageDiff.imageDiff
+import org.miker.tryi.Triangle.MutationType
 import java.awt.image.BufferedImage
 import kotlin.math.max
 import kotlin.random.Random
@@ -15,15 +14,15 @@ import kotlin.random.Random
 class MultiParentEvolver(
     private val target: BufferedImage,
     private val previewPanel: Option<GeneratedPreview>,
-    outputRate: Int,
     baseName: String,
-    private val mutationChance: Double = 0.01,
-    private val mutationAmount: Double = 0.10,
+    private val numTriangles: Int,
+    private val mutationChance: Double,
+    private val mutationAmount: Double,
+    private val mutationType: MutationType,
     private val select: (population: List<TryiMatch>) -> Pair<Tryi, Tryi> = { tournament(it,2) },
     private val populationSize: Int = 50,
-    private val numTriangles: Int = NUM_TRIANGLES,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD
-) : Evolver(numTriangles, target, outputRate, baseName) {
+) : Evolver(numTriangles, target, baseName) {
 
     /**
      * Generate the initial random population
@@ -39,13 +38,7 @@ class MultiParentEvolver(
     private fun createChild(p1: List<Triangle>, p2: List<Triangle>): List<Triangle> =
         p1.zip(p2).map { parents ->
             // choose one gene (triangle) randomly from a parent
-            parents.choose().let { base ->
-                // decide to mutate that triangle or not
-                when {
-                    (Random.nextDouble(0.0, 1.0) <= mutationChance) -> base.mutate(mutationAmount)
-                    else -> base
-                }
-            }
+            parents.choose().mutate(mutationType, mutationChance, mutationAmount)
         }
 
     /**
