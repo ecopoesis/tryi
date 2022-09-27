@@ -9,7 +9,7 @@ import javax.swing.JPanel
 
 class GeneratedPreview(val sizeX: Int, val sizeY: Int): JPanel() {
     init {
-        background = Color(0, 0, 0)
+        background = Color(255, 255, 255)
     }
 
     var image: Image = BufferedImage(sizeX, sizeY, BufferedImage.TYPE_4BYTE_ABGR)

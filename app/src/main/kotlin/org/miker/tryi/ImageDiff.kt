@@ -1,8 +1,8 @@
 package org.miker.tryi
 
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
-import org.miker.tryi.ImageDiff.ImageDiffAlgo.LONG_DATABUFFER_LUT
 import org.miker.tryi.ImageDiff.ImageDiffAlgo.LONG_DATABUFFER_LUT_PYTHAGOREAN
+import org.miker.tryi.Utilities.compositeWhite
 import java.awt.image.BufferedImage
 import java.math.BigInteger.ZERO
 import java.math.BigInteger.valueOf
@@ -12,7 +12,7 @@ object ImageDiff {
     private val compositeLutLong: Array<LongArray> by lazy {
         (0..255).map { a ->
             (0..255).map { c ->
-                composite(a.toUByte(), c.toUByte()).toLong()
+                compositeWhite(a.toUByte(), c.toUByte()).toLong()
             }.toTypedArray().toLongArray()
         }.toTypedArray()
     }
@@ -20,7 +20,7 @@ object ImageDiff {
     private val compositeLutInt: Array<IntArray> by lazy {
         (0..255).map { a ->
             (0..255).map { c ->
-                composite(a.toUByte(), c.toUByte())
+                compositeWhite(a.toUByte(), c.toUByte())
             }.toTypedArray().toIntArray()
         }.toTypedArray()
     }
@@ -35,17 +35,6 @@ object ImageDiff {
      * the max distance for pythagorean diffs
      */
     private const val MAX_DIST: Long = (255 * 255) * 3L
-
-    /**
-     * adjust [color] by [alpha] for a black background
-     */
-    private fun composite(alpha: UByte, color: UByte): Int {
-        // normalize 0..1
-        val a = alpha.toLong() / 255.0
-        val c = color.toLong() / 255.0
-
-        return  ((a * c) * 255).toInt().coerceIn(0, 255)
-    }
 
     enum class ImageDiffAlgo(val fn: (a: BufferedImage, b: BufferedImage) -> Double) {
         APACHE_STATS(
@@ -139,22 +128,22 @@ object ImageDiff {
                     if (i % 4 == 0) {
                         // byte order is: A, B, G, R
                         total += abs(
-                            composite(
+                            compositeWhite(
                                 aData[i].toUByte(),
                                 aData[i + 1].toUByte()
-                            ) - composite(bData[i].toUByte(), bData[i + 1].toUByte())
+                            ) - compositeWhite(bData[i].toUByte(), bData[i + 1].toUByte())
                         )
                         total += abs(
-                            composite(
+                            compositeWhite(
                                 aData[i].toUByte(),
                                 aData[i + 2].toUByte()
-                            ) - composite(bData[i].toUByte(), bData[i + 2].toUByte())
+                            ) - compositeWhite(bData[i].toUByte(), bData[i + 2].toUByte())
                         )
                         total += abs(
-                            composite(
+                            compositeWhite(
                                 aData[i].toUByte(),
                                 aData[i + 3].toUByte()
-                            ) - composite(bData[i].toUByte(), bData[i + 3].toUByte())
+                            ) - compositeWhite(bData[i].toUByte(), bData[i + 3].toUByte())
                         )
                     }
                 }

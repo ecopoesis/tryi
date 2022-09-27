@@ -22,6 +22,7 @@ export function render(src, canvas) {
         const ctx = canvas.getContext('2d');
 
         // background
+        ctx.fillStyle = `rgb(255, 255, 255)`;
         ctx.fillRect(0, 0, x, y);
 
         const xScale = x / 255
@@ -33,7 +34,7 @@ export function render(src, canvas) {
         for (let i = 0; i < intArray.length; i += 10) {
             ctx.beginPath();
             ctx.fillStyle = `rgba(${intArray[6+i]}, ${intArray[7+i]}, ${intArray[8+i]}, ${intArray[9+i] / 255})`;
-            ctx.moveTo(intArray[0] * xScale, intArray[1+i] * yScale);
+            ctx.moveTo(intArray[i] * xScale, intArray[1+i] * yScale);
             ctx.lineTo(intArray[2+i] * xScale, intArray[3+i] * yScale);
             ctx.lineTo(intArray[4+i] * xScale, intArray[5+i] * yScale);
             ctx.fill();

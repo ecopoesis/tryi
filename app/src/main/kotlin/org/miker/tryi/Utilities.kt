@@ -42,4 +42,49 @@ suspend fun <A, B> Iterable<A>.pmap(f: suspend (A) -> B): List<B> = coroutineSco
 object Utilities {
     fun emptyBufferedImage(): BufferedImage =
         BufferedImage(UByte.MAX_VALUE.toInt(), UByte.MAX_VALUE.toInt(), BufferedImage.TYPE_4BYTE_ABGR)
+
+    /**
+     * adjust [color] by [alpha] for a black background
+     */
+    fun compositeBlack(alpha: UByte, color: UByte): Int {
+        // normalize 0..1
+        val a = alpha.toLong() / 255.0
+        val c = color.toLong() / 255.0
+
+        return  ((a * c) * 255).toInt().coerceIn(0, 255)
+    }
+
+    /**
+     * adjust [color] by [alpha] for a white background
+     */
+    fun compositeWhite(alpha: UByte, color: UByte): Int {
+        // normalize 0..1
+        val a = alpha.toLong() / 255.0
+        val c = color.toLong() / 255.0
+
+        return (((1 - a) + (a * c)) * 255).toInt().coerceIn(0, 255)
+    }
+
+    /**
+     * adjust [color] so it has [targetAlpha] for a black background
+     */
+    fun decompositeBlack(color: UByte, targetAlpha: UByte): Int {
+        // normalize 0..1
+        val a = targetAlpha.toLong() / 255.0
+        val c = color.toLong() / 255.0
+
+        return ((c / a) * 255).toInt().coerceIn(0, 255)
+    }
+
+
+    /**
+     * adjust [color] so it has [targetAlpha] for a white background
+     */
+    fun decompositeWhite(color: UByte, targetAlpha: UByte): Int {
+        // normalize 0..1
+        val a = targetAlpha.toLong() / 255.0
+        val c = color.toLong() / 255.0
+
+        return ((a * (c - 1 + a)) * 255).toInt().coerceIn(0, 255)
+    }
 }
