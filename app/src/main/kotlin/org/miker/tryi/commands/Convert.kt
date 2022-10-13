@@ -11,6 +11,7 @@ import org.miker.tryi.commands.Format.DNA
 import org.miker.tryi.commands.Format.JPEG
 import org.miker.tryi.commands.Format.PNG
 import org.miker.tryi.commands.Format.TRYI
+import org.miker.tryi.render
 import java.awt.Color
 import java.awt.Image
 import java.awt.image.BufferedImage
@@ -44,13 +45,28 @@ class Convert : CliktCommand(help = "Convert formats.") {
         when (format) {
             TRYI -> File("${input.nameWithoutExtension}.tryi").writeText(tryi.serialize())
             JPEG, PNG -> {
-                val toolkitImage = tryi.image.getScaledInstance(tryi.x, tryi.y, Image.SCALE_SMOOTH);
-                val output = BufferedImage(tryi.x, tryi.y, BufferedImage.TYPE_INT_ARGB)
-                val g = output.getGraphics()
-                g.drawImage(toolkitImage, 0, 0, Color(255, 255, 255),null)
-                g.dispose()
+                val out = BufferedImage(tryi.x, tryi.y, BufferedImage.TYPE_4BYTE_ABGR)
+                val g2d = out.createGraphics()
+
+                // background
+                g2d.color = Color(255, 255, 255)
+                g2d.fillPolygon(arrayOf(0, tryi.x, tryi.x, 0).toIntArray(), arrayOf(0, 0, tryi.y, tryi.y).toIntArray(), 4)
+
+                val xScale = tryi.x.toDouble() / 255
+                val yScale = tryi.y.toDouble() / 255
+
+                tryi.triangles.forEach { triangle ->
+                    g2d.color = triangle.color.asColor
+                    g2d.fillPolygon(
+                        triangle.x.map { (it * xScale).toInt() }.toIntArray(),
+                        triangle.y.map { (it * yScale).toInt() }.toIntArray(),
+                        3
+                    )
+                }
+                g2d.dispose()
+
                 ImageIO.write(
-                    output,
+                    out,
                     format.toString(),
                     File("${input.nameWithoutExtension}.${format.toString().lowercase()}")
                 )
