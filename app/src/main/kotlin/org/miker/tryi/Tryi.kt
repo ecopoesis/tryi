@@ -8,12 +8,15 @@ import java.util.*
 
 /**
  * Triangles and their rendered image.
+ * [x] and [y] are rendered size.
  */
 data class Tryi(
     val triangles: List<Triangle>,
-    val image: BufferedImage
+    val image: BufferedImage,
+    val x: Int,
+    val y: Int
 ) {
-    constructor(triangles: List<Triangle>) : this(triangles, triangles.render())
+    constructor(triangles: List<Triangle>, x: Int, y: Int) : this(triangles, triangles.render(), x, y)
 
     fun serialize(): String =
         Base64.getEncoder().encodeToString(triangles.flatMap { tri -> tri.asList }.map { it.toByte() }.toByteArray())
@@ -21,7 +24,8 @@ data class Tryi(
     companion object {
         @OptIn(ExperimentalUnsignedTypes::class)
         fun deserialize(s: String): Tryi {
-            val bytes = Base64.getDecoder().decode(s).toUByteArray()
+            val parts = s.split(";")
+            val bytes = Base64.getDecoder().decode(parts[2]).toUByteArray()
             if (bytes.size % 10 != 0) {
                 throw IllegalArgumentException("Tryis must contain a multiple of 10 bytes")
             }
@@ -35,7 +39,7 @@ data class Tryi(
                 )
             }
 
-            return Tryi(triangles)
+            return Tryi(triangles, parts[0].toInt(), parts[1].toInt())
         }
 
         /**
@@ -77,11 +81,13 @@ data class Tryi(
                     TryiColor(r, g, b, a)
                 )
             }
-            return Tryi(triangles)
+
+            // DNA doesn't carry size
+            return Tryi(triangles, 255, 255)
         }
 
-        fun empty(): Tryi = Tryi(emptyList(), Utilities.emptyBufferedImage())
+        fun empty(x: Int, y: Int): Tryi = Tryi(emptyList(), Utilities.emptyBufferedImage(), x, y)
 
-        fun random(numTriangles: Int = 100): Tryi = Tryi(List(numTriangles) { Triangle.random() })
+        fun random(numTriangles: Int = 100, x: Int, y: Int): Tryi = Tryi(List(numTriangles) { Triangle.random() }, x, y)
     }
 }

@@ -28,8 +28,8 @@ class SingleParentEvolver(
     private val mutationChance: Double,
     private val mutationAmount: Double,
     private val mutationType: MutationType,
-    ogX: Int,
-    ogY: Int,
+    private val ogX: Int,
+    private val ogY: Int,
     private val numChildren: Int = 50,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD,
 ) : Evolver(numTriangles, target, baseName, ogX, ogY) {
@@ -40,7 +40,7 @@ class SingleParentEvolver(
             }
             val candidate = child.render()
 
-            return TryiMatch(child, candidate, imageDiff(target, candidate))
+            return TryiMatch(child, candidate, ogX, ogY, imageDiff(target, candidate))
         }
 
         tailrec fun inner(tryiMatch: TryiMatch, generation: Long, start: Long): TryiMatch =

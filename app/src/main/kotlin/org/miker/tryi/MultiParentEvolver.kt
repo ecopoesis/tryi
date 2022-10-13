@@ -19,8 +19,8 @@ class MultiParentEvolver(
     private val mutationChance: Double,
     private val mutationAmount: Double,
     private val mutationType: MutationType,
-    ogX: Int,
-    ogY: Int,
+    private val ogX: Int,
+    private val ogY: Int,
     private val select: (population: List<TryiMatch>) -> Pair<Tryi, Tryi> = { tournament(it,2) },
     private val populationSize: Int = 50,
     private val fitnessThreshold: Double = FITNESS_THRESHOLD
@@ -30,7 +30,7 @@ class MultiParentEvolver(
      * Generate the initial random population
      */
     private fun generateRandomPopulation(): List<Tryi> =
-        List(populationSize) { Tryi(List(numTriangles) { Triangle.random() }) }
+        List(populationSize) { Tryi(List(numTriangles) { Triangle.random() }, ogX, ogY) }
 
     private fun generateFitPopulation(): List<Tryi> = List(populationSize) { buildInitialTriy(populationSize) }
 
@@ -54,7 +54,7 @@ class MultiParentEvolver(
                     val parents = select(population)
 
                     // create a child from the parents
-                    Tryi(createChild(parents.first.triangles, parents.second.triangles))
+                    Tryi(createChild(parents.first.triangles, parents.second.triangles), ogX, ogY)
                 }
             }.awaitAll()
         }

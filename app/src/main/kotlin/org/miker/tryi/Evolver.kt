@@ -44,7 +44,7 @@ abstract class Evolver(
             g2d.fillPolygon(triangle.x, triangle.y, 3)
             g2d.dispose()
 
-            return TryiMatch(tryi.triangles + triangle, candidate, imageDiff(target, candidate))
+            return TryiMatch(tryi.triangles + triangle, candidate, ogX, ogY, imageDiff(target, candidate))
         }
 
         tailrec fun inner(tryi: Tryi): Tryi =
@@ -66,7 +66,7 @@ abstract class Evolver(
                 }
             }
 
-        return inner(Tryi.empty())
+        return inner(Tryi.empty(ogX, ogY))
     }
 
     fun output(tryi: Tryi, generation: Option<Long> = None) {

@@ -12,6 +12,7 @@
           width: 100%;
       }
     </style>
+    <script type="text/javascript" src="tryi.js"></script>
   </head>
   <body>
     <div class="tryi">
@@ -22,10 +23,7 @@
         Your browser does not support the HTML5 canvas tag.
       </canvas>
     </div>
-
-    <script type="module">
-      import { render } from './tryi.js'
-
+    <script>
       document.getElementById('tryi').addEventListener('change',  function () {
           render(
               document.getElementById('tryi').value,
