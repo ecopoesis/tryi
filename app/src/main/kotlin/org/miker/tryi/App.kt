@@ -9,11 +9,12 @@ class App : CliktCommand(name = "tryi") {
     override fun run() = Unit
 }
 
-fun main(args: Array<String>) =
+fun main(args: Array<String>) {
+    System.setProperty("apple.awt.UIElement", "true")
     App()
         .subcommands(Convert(), Evolve())
         .main(args)
-
+}
 
 // roulette change: change 1 of the 10 params
 // gaussian mutate
